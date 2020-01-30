@@ -1,93 +1,94 @@
 package scalacache
 
+import cats.effect.Async
 import scalacache.logging.Logger
+
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
-class EmptyCache[V](implicit val config: CacheConfig) extends AbstractCache[V] {
+class EmptyCache[F[_]: Async, V](implicit val config: CacheConfig) extends AbstractCache[F, V] {
 
   override protected def logger = Logger.getLogger("EmptyCache")
 
-  override protected def doGet[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.pure(None)
+  override protected def doGet(key: String) =
+    Async[F].pure(None)
 
-  override protected def doPut[F[_]](key: String, value: V, ttl: Option[Duration])(implicit mode: Mode[F]) =
-    mode.M.pure(())
+  override protected def doPut(key: String, value: V, ttl: Option[Duration]) =
+    Async[F].pure(())
 
-  override protected def doRemove[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.pure(())
+  override protected def doRemove(key: String) =
+    Async[F].pure(())
 
-  override protected def doRemoveAll[F[_]]()(implicit mode: Mode[F]) =
-    mode.M.pure(())
+  override protected def doRemoveAll() =
+    Async[F].pure(())
 
-  override def close[F[_]]()(implicit mode: Mode[F]) = mode.M.pure(())
-
-}
-
-class FullCache[V](value: V)(implicit val config: CacheConfig) extends AbstractCache[V] {
-
-  override protected def logger = Logger.getLogger("FullCache")
-
-  override protected def doGet[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.pure(Some(value))
-
-  override protected def doPut[F[_]](key: String, value: V, ttl: Option[Duration])(implicit mode: Mode[F]) =
-    mode.M.pure(())
-
-  override protected def doRemove[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.pure(())
-
-  override protected def doRemoveAll[F[_]]()(implicit mode: Mode[F]) =
-    mode.M.pure(())
-
-  override def close[F[_]]()(implicit mode: Mode[F]) = mode.M.pure(())
+  override def close() = Async[F].pure(())
 
 }
 
-class ErrorRaisingCache[V](implicit val config: CacheConfig) extends AbstractCache[V] {
+class FullCache[F[_]: Async, V](value: V)(implicit val config: CacheConfig) extends AbstractCache[F, V] {
 
   override protected def logger = Logger.getLogger("FullCache")
 
-  override protected def doGet[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.raiseError(new RuntimeException("failed to read"))
+  override protected def doGet(key: String) =
+    Async[F].pure(Some(value))
 
-  override protected def doPut[F[_]](key: String, value: V, ttl: Option[Duration])(implicit mode: Mode[F]) =
-    mode.M.raiseError(new RuntimeException("failed to write"))
+  override protected def doPut(key: String, value: V, ttl: Option[Duration]) =
+    Async[F].pure(())
 
-  override protected def doRemove[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.pure(())
+  override protected def doRemove(key: String) =
+    Async[F].pure(())
 
-  override protected def doRemoveAll[F[_]]()(implicit mode: Mode[F]) =
-    mode.M.pure(())
+  override protected def doRemoveAll() =
+    Async[F].pure(())
 
-  override def close[F[_]]()(implicit mode: Mode[F]) = mode.M.pure(())
+  override def close() = Async[F].pure(())
 
+}
+
+class ErrorRaisingCache[F[_]: Async, V](implicit val config: CacheConfig) extends AbstractCache[F, V] {
+
+  override protected def logger = Logger.getLogger("FullCache")
+
+  override protected def doGet(key: String) =
+    Async[F].raiseError(new RuntimeException("failed to read"))
+
+  override protected def doPut(key: String, value: V, ttl: Option[Duration]) =
+    Async[F].raiseError(new RuntimeException("failed to write"))
+
+  override protected def doRemove(key: String) =
+    Async[F].pure(())
+
+  override protected def doRemoveAll() =
+    Async[F].pure(())
+
+  override def close() = Async[F].pure(())
 }
 
 /**
   * A mock cache for use in tests and samples.
   * Does not support TTL.
   */
-class MockCache[V](implicit val config: CacheConfig) extends AbstractCache[V] {
+class MockCache[F[_]: Async, V](implicit val config: CacheConfig) extends AbstractCache[F, V] {
 
   override protected def logger = Logger.getLogger("MockCache")
 
   val mmap = collection.mutable.Map[String, V]()
 
-  override protected def doGet[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.delay(mmap.get(key))
+  override protected def doGet(key: String) =
+    Async[F].delay(mmap.get(key))
 
-  override protected def doPut[F[_]](key: String, value: V, ttl: Option[Duration])(implicit mode: Mode[F]) =
-    mode.M.delay(mmap.put(key, value))
+  override protected def doPut(key: String, value: V, ttl: Option[Duration]) =
+    Async[F].delay(mmap.put(key, value))
 
-  override protected def doRemove[F[_]](key: String)(implicit mode: Mode[F]) =
-    mode.M.delay(mmap.remove(key))
+  override protected def doRemove(key: String) =
+    Async[F].delay(mmap.remove(key))
 
-  override protected def doRemoveAll[F[_]]()(implicit mode: Mode[F]) =
-    mode.M.delay(mmap.clear())
+  override protected def doRemoveAll() =
+    Async[F].delay(mmap.clear())
 
-  override def close[F[_]]()(implicit mode: Mode[F]) = mode.M.pure(())
+  override def close() = Async[F].pure(())
 
 }
 
@@ -95,23 +96,21 @@ class MockCache[V](implicit val config: CacheConfig) extends AbstractCache[V] {
   * A cache that keeps track of the arguments it was called with. Useful for tests.
   * Designed to be mixed in as a stackable trait.
   */
-trait LoggingCache[V] extends AbstractCache[V] {
+trait LoggingCache[F[_], V] extends AbstractCache[F, V] {
   var (getCalledWithArgs, putCalledWithArgs, removeCalledWithArgs) =
     (ArrayBuffer.empty[String], ArrayBuffer.empty[(String, Any, Option[Duration])], ArrayBuffer.empty[String])
 
-  protected abstract override def doGet[F[_]](key: String)(implicit mode: Mode[F]): F[Option[V]] = {
+  protected abstract override def doGet(key: String): F[Option[V]] = {
     getCalledWithArgs.append(key)
     super.doGet(key)
   }
 
-  protected abstract override def doPut[F[_]](key: String, value: V, ttl: Option[Duration])(
-      implicit mode: Mode[F]
-  ): F[Any] = {
+  protected abstract override def doPut(key: String, value: V, ttl: Option[Duration]): F[Any] = {
     putCalledWithArgs.append((key, value, ttl))
     super.doPut(key, value, ttl)
   }
 
-  protected abstract override def doRemove[F[_]](key: String)(implicit mode: Mode[F]): F[Any] = {
+  protected abstract override def doRemove(key: String): F[Any] = {
     removeCalledWithArgs.append(key)
     super.doRemove(key)
   }
@@ -127,4 +126,4 @@ trait LoggingCache[V] extends AbstractCache[V] {
 /**
   * A mock cache that keeps track of the arguments it was called with.
   */
-class LoggingMockCache[V] extends MockCache[V] with LoggingCache[V]
+class LoggingMockCache[F[_]: Async, V] extends MockCache[F, V] with LoggingCache[F, V]

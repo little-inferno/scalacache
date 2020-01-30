@@ -2,6 +2,7 @@ package scalacache.cache2k
 
 import java.time.Instant
 
+import cats.effect.IO
 import org.cache2k.Cache2kBuilder
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
@@ -16,33 +17,31 @@ class Cache2kCacheSpec extends FlatSpec with Matchers with BeforeAndAfter with S
       .expireAfterWrite(1, DAYS)
       .build
 
-  import scalacache.modes.sync._
-
   behavior of "get"
 
   it should "return the value stored in the underlying cache" in {
     val underlying = newCCache
     underlying.put("key1", "hello")
-    Cache2kCache(underlying).get("key1") should be(Some("hello"))
+    Cache2kCache[IO, String](underlying).get("key1").unsafeRunSync() should be(Some("hello"))
   }
 
   it should "return None if the given key does not exist in the underlying cache" in {
     val underlying = newCCache
-    Cache2kCache(underlying).get("non-existent key") should be(None)
+    Cache2kCache[IO, String](underlying).get("non-existent key").unsafeRunSync() should be(None)
   }
 
   it should "return None if the given key has expired" in {
     val underlying = newCCache
     underlying.put("key1", "hello")
     underlying.expireAt("key1", Instant.now.minusSeconds(1).toEpochMilli)
-    Cache2kCache(underlying).get("key1") should be(None)
+    Cache2kCache[IO, String](underlying).get("key1").unsafeRunSync() should be(None)
   }
 
   behavior of "put"
 
   it should "store the given key-value pair in the underlying cache with no TTL" in {
     val underlying = newCCache
-    Cache2kCache(underlying).put("key1")("hello", None)
+    Cache2kCache[IO, String](underlying).put("key1")("hello", None).unsafeRunSync()
     underlying.peek("key1") should be("hello")
   }
 
@@ -50,11 +49,11 @@ class Cache2kCacheSpec extends FlatSpec with Matchers with BeforeAndAfter with S
 
   it should "store the given key-value pair in the underlying cache with the given TTL" in {
     val underlying   = newCCache
-    val cache2kCache = new Cache2kCache(underlying)(implicitly[CacheConfig])
-    cache2kCache.put("key1")("hello", Some(1.nanosecond))
+    val cache2kCache = new Cache2kCache[IO, String](underlying)
+    cache2kCache.put("key1")("hello", Some(1.nanosecond)).unsafeRunSync()
     Thread.sleep(100)
     underlying.peek("key1") should be(null)
-    cache2kCache.put("key2")("hello", Some(1.day))
+    cache2kCache.put("key2")("hello", Some(1.day)).unsafeRunSync()
     underlying.peek("key2") should be("hello")
   }
 
@@ -65,7 +64,7 @@ class Cache2kCacheSpec extends FlatSpec with Matchers with BeforeAndAfter with S
     underlying.put("key1", "hello")
     underlying.peek("key1") should be("hello")
 
-    Cache2kCache(underlying).remove("key1")
+    Cache2kCache[IO, String](underlying).remove("key1").unsafeRunSync()
     underlying.peek("key1") should be(null)
   }
 

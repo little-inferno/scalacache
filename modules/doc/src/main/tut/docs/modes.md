@@ -16,7 +16,6 @@ ScalaCache comes with a few built-in modes.
 #### Synchronous mode
 
 ```tut:silent
-import scalacache.modes.sync._
 ```
 
 * Blocks the current thread until the operation completes
@@ -59,7 +58,6 @@ libraryDependencies += "com.github.cb372" %% "scalacache-cats-effect" % "0.28.0"
 ```tut:silent
 import scalacache.Mode
 import cats.effect.IO
-implicit val mode: Mode[IO] = scalacache.CatsEffect.modes.async
 ```
 
 * Wraps the operation in `IO`, deferring execution until it is explicitly run

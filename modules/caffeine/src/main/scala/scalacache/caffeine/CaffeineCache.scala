@@ -3,10 +3,11 @@ package scalacache.caffeine
 import java.time.temporal.ChronoUnit
 import java.time.{Clock, Instant}
 
+import cats.effect.Async
 import com.github.benmanes.caffeine.cache.{Caffeine, Cache => CCache}
-
 import scalacache.logging.Logger
-import scalacache.{AbstractCache, CacheConfig, Entry, Mode}
+import scalacache.{AbstractCache, CacheConfig, Entry}
+
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
@@ -15,15 +16,15 @@ import scala.language.higherKinds
  *
  * This cache implementation is synchronous.
  */
-class CaffeineCache[V](val underlying: CCache[String, Entry[V]])(
+class CaffeineCache[F[_]: Async, V](val underlying: CCache[String, Entry[V]])(
     implicit val config: CacheConfig,
     clock: Clock = Clock.systemUTC()
-) extends AbstractCache[V] {
+) extends AbstractCache[F, V] {
 
   override protected final val logger = Logger.getLogger(getClass.getName)
 
-  def doGet[F[_]](key: String)(implicit mode: Mode[F]): F[Option[V]] = {
-    mode.M.delay {
+  def doGet(key: String): F[Option[V]] = {
+    Async[F].delay {
       val entry = underlying.getIfPresent(key)
       val result = {
         if (entry == null || entry.isExpired)
@@ -36,23 +37,23 @@ class CaffeineCache[V](val underlying: CCache[String, Entry[V]])(
     }
   }
 
-  def doPut[F[_]](key: String, value: V, ttl: Option[Duration])(implicit mode: Mode[F]): F[Any] = {
-    mode.M.delay {
+  def doPut(key: String, value: V, ttl: Option[Duration]): F[Any] = {
+    Async[F].delay {
       val entry = Entry(value, ttl.map(toExpiryTime))
       underlying.put(key, entry)
       logCachePut(key, ttl)
     }
   }
 
-  override def doRemove[F[_]](key: String)(implicit mode: Mode[F]): F[Any] =
-    mode.M.delay(underlying.invalidate(key))
+  override def doRemove(key: String): F[Any] =
+    Async[F].delay(underlying.invalidate(key))
 
-  override def doRemoveAll[F[_]]()(implicit mode: Mode[F]): F[Any] =
-    mode.M.delay(underlying.invalidateAll())
+  override def doRemoveAll(): F[Any] =
+    Async[F].delay(underlying.invalidateAll())
 
-  override def close[F[_]]()(implicit mode: Mode[F]): F[Any] = {
+  override def close(): F[Any] = {
     // Nothing to do
-    mode.M.pure(())
+    Async[F].pure(())
   }
 
   private def toExpiryTime(ttl: Duration): Instant =
@@ -65,7 +66,7 @@ object CaffeineCache {
   /**
     * Create a new Caffeine cache
     */
-  def apply[V](implicit config: CacheConfig): CaffeineCache[V] =
+  def apply[F[_]: Async, V](implicit config: CacheConfig): CaffeineCache[F, V] =
     apply(Caffeine.newBuilder().build[String, Entry[V]]())
 
   /**
@@ -73,7 +74,7 @@ object CaffeineCache {
     *
     * @param underlying a Caffeine cache
     */
-  def apply[V](underlying: CCache[String, Entry[V]])(implicit config: CacheConfig): CaffeineCache[V] =
+  def apply[F[_]: Async, V](underlying: CCache[String, Entry[V]])(implicit config: CacheConfig): CaffeineCache[F, V] =
     new CaffeineCache(underlying)
 
 }

@@ -2,12 +2,13 @@ package scalacache.redis
 
 import java.io.Closeable
 
+import cats.effect.Async
 import redis.clients.jedis._
 import redis.clients.util.Pool
-
 import scalacache.logging.Logger
 import scalacache.serialization.Codec
-import scalacache.{AbstractCache, CacheConfig, Mode}
+import scalacache.{AbstractCache, CacheConfig}
+
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
@@ -15,7 +16,7 @@ import scala.language.higherKinds
   * Contains implementations of all methods that can be implemented independent of the type of Redis client.
   * This is everything apart from `removeAll`, which needs to be implemented differently for sharded Redis.
   */
-trait RedisCacheBase[V] extends AbstractCache[V] {
+abstract class RedisCacheBase[F[_]: Async, V] extends AbstractCache[F, V] {
 
   override protected final val logger = Logger.getLogger(getClass.getName)
 
@@ -29,7 +30,7 @@ trait RedisCacheBase[V] extends AbstractCache[V] {
 
   protected def codec: Codec[V]
 
-  protected def doGet[F[_]](key: String)(implicit mode: Mode[F]): F[Option[V]] = mode.M.suspend {
+  protected def doGet(key: String): F[Option[V]] = Async[F].suspend {
     withJedis { jedis =>
       val bytes = jedis.get(key.utf8bytes)
       val result: Codec.DecodingResult[Option[V]] = {
@@ -40,16 +41,16 @@ trait RedisCacheBase[V] extends AbstractCache[V] {
       }
       result match {
         case Left(e) =>
-          mode.M.raiseError(e)
+          Async[F].raiseError(e)
         case Right(maybeValue) =>
           logCacheHitOrMiss(key, maybeValue)
-          mode.M.pure(maybeValue)
+          Async[F].pure(maybeValue)
       }
     }
   }
 
-  protected def doPut[F[_]](key: String, value: V, ttl: Option[Duration])(implicit mode: Mode[F]): F[Any] =
-    mode.M.delay {
+  protected def doPut(key: String, value: V, ttl: Option[Duration]): F[Any] =
+    Async[F].delay {
       withJedis { jedis =>
         val keyBytes   = key.utf8bytes
         val valueBytes = codec.encode(value)
@@ -70,13 +71,13 @@ trait RedisCacheBase[V] extends AbstractCache[V] {
       logCachePut(key, ttl)
     }
 
-  protected def doRemove[F[_]](key: String)(implicit mode: Mode[F]): F[Any] = mode.M.delay {
+  protected def doRemove(key: String): F[Any] = Async[F].delay {
     withJedis { jedis =>
       jedis.del(key.utf8bytes)
     }
   }
 
-  def close[F[_]]()(implicit mode: Mode[F]): F[Any] = mode.M.delay(jedisPool.close())
+  def close(): F[Any] = Async[F].delay(jedisPool.close())
 
   /**
     * Borrow a Jedis client from the pool, perform some operation and then return the client to the pool.
@@ -86,7 +87,7 @@ trait RedisCacheBase[V] extends AbstractCache[V] {
     * @return the result of executing the block
     */
   protected final def withJedis[T](f: JClient => T): T = {
-    val jedis = jedisPool.getResource()
+    val jedis = jedisPool.getResource
     try {
       f(jedis)
     } finally {

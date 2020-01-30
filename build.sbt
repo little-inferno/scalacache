@@ -41,8 +41,6 @@ lazy val root: Project = Project(id = "scalacache", base = file("."))
     cache2k,
     caffeine,
     ohc,
-    catsEffect,
-    scalaz72,
     circe,
     tests
   )
@@ -55,7 +53,8 @@ lazy val core =
       libraryDependencies ++= Seq(
         "org.scala-lang" % "scala-reflect" % scalaVersion.value,
         "org.scalatest"  %%% "scalatest"   % "3.0.8" % Test,
-        "org.scalacheck" %%% "scalacheck"  % "1.14.0" % Test
+        "org.scalacheck" %%% "scalacheck"  % "1.14.0" % Test,
+        "org.typelevel"  %%% "cats-effect" % "2.0.0"
       ),
       coverageMinimum := 79,
       coverageFailOnMinimum := true
@@ -141,24 +140,6 @@ lazy val ohc = jvmOnlyModule("ohc")
     )
   )
 
-lazy val catsEffect = jvmOnlyModule("cats-effect")
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-effect" % "2.0.0"
-    ),
-    coverageMinimum := 50,
-    coverageFailOnMinimum := true
-  )
-
-lazy val scalaz72 = jvmOnlyModule("scalaz72")
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.scalaz" %% "scalaz-concurrent" % "7.2.27"
-    ),
-    coverageMinimum := 40,
-    coverageFailOnMinimum := true
-  )
-
 def circeVersion(scalaVersion: String) =
   CrossVersion.partialVersion(scalaVersion) match {
     case Some((2, scalaMajor)) if scalaMajor >= 12 => "0.12.1"
@@ -181,7 +162,7 @@ lazy val circe = jvmOnlyModule("circe")
 
 lazy val tests = jvmOnlyModule("tests")
   .settings(publishArtifact := false)
-  .dependsOn(cache2k, caffeine, memcached, redis, ohc, catsEffect, scalaz72, circe)
+  .dependsOn(cache2k, caffeine, memcached, redis, ohc, circe)
 
 lazy val doc = jvmOnlyModule("doc")
   .enablePlugins(MicrositesPlugin)
@@ -208,8 +189,6 @@ lazy val doc = jvmOnlyModule("doc")
     cache2k,
     caffeine,
     ohc,
-    catsEffect,
-    scalaz72,
     circe
   )
 

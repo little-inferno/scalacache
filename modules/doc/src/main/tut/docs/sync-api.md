@@ -12,7 +12,6 @@ If you want to use synchronous mode, the synchronous API is recommended. This wo
 ```tut
 import scalacache._
 import scalacache.memcached._
-import scalacache.modes.sync._
 
 import scalacache.serialization.binary._
 

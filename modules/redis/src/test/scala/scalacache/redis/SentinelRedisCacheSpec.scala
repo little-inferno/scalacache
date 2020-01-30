@@ -1,5 +1,6 @@
 package scalacache.redis
 
+import cats.effect.Async
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import redis.clients.jedis._
 
@@ -15,8 +16,8 @@ class SentinelRedisCacheSpec extends RedisCacheSpecBase {
 
   val withJedis = assumingRedisSentinelIsRunning _
 
-  def constructCache[V](pool: JPool)(implicit codec: Codec[V]): CacheAlg[V] =
-    new SentinelRedisCache[V](jedisPool = pool)
+  def constructCache[F[_]: Async, V](pool: JPool)(implicit codec: Codec[V]): CacheAlg[F, V] =
+    new SentinelRedisCache[F, V](jedisPool = pool)
 
   def flushRedis(client: JClient): Unit = client.underlying.flushDB()
 

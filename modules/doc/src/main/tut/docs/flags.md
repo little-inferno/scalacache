@@ -23,14 +23,13 @@ Example:
 import scalacache._
 import scalacache.memcached._
 import scalacache.memoization._
-import scalacache.modes.sync._
 import scalacache.serialization.binary._
 
 final case class Cat(id: Int, name: String, colour: String)
 
 implicit val catsCache: Cache[Cat] = MemcachedCache("localhost:11211")
 
-def getCatWithFlags(id: Int)(implicit flags: Flags): Cat = memoizeSync(None) {
+def getCatWithFlags(id: Int)(implicit flags: Flags): Cat = memoize(None) {
   // Do DB lookup here...
   Cat(id, s"cat ${id}", "black")
 }

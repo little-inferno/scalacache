@@ -377,7 +377,7 @@ Breaking API changes (sorry!):
 
 * `scalacache.caching` and `scalacache.cachingWithTTL` have been renamed to `scalacache.sync.caching` and `scalacache.sync.cachingWithTTL` respectively. This is to make way for the new asynchronous versions of these methods.
 * `scalacache.getSync` has been deprecated and will be removed soon. Please use `scalacache.sync.get` instead.
-* Both of the overloaded `scalacache.memoization.memoize` methods have been renamed to `scalacache.memoization.memoizeSync`. This is to make way for the new asynchronous versions of these methods.
+* Both of the overloaded `scalacache.memoization.memoize` methods have been renamed to `scalacache.memoization.memoize`. This is to make way for the new asynchronous versions of these methods.
 
 Other stuff:
 

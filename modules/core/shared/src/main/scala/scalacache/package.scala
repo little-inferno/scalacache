@@ -1,3 +1,5 @@
+import cats.effect.Async
+
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
@@ -12,13 +14,12 @@ package object scalacache {
     *                 This could be as simple as just a single String.
     *                 See [[CacheKeyBuilder]].
     * @param cache The cache
-    * @param mode The operation mode, which decides the type of container in which to wrap the result
     * @param flags Flags used to conditionally alter the behaviour of ScalaCache
     * @tparam F The type of container in which the result will be wrapped. This is decided by the mode.
     * @tparam V The type of the corresponding value
     * @return the value, if there is one
     */
-  def get[F[_], V](keyParts: Any*)(implicit cache: Cache[V], mode: Mode[F], flags: Flags): F[Option[V]] =
+  def get[F[_]: Async, V](keyParts: Any*)(implicit cache: Cache[F, V], flags: Flags): F[Option[V]] =
     cache.get(keyParts: _*)
 
   /**
@@ -32,14 +33,13 @@ package object scalacache {
     * @param value the value to be cached
     * @param ttl Time To Live (optional, if not specified then the entry will be cached indefinitely)
     * @param cache The cache
-    * @param mode The operation mode, which decides the type of container in which to wrap the result
     * @param flags Flags used to conditionally alter the behaviour of ScalaCache
     * @tparam F The type of container in which the result will be wrapped. This is decided by the mode.
     * @tparam V The type of the corresponding value
     */
-  def put[F[_], V](
+  def put[F[_]: Async, V](
       keyParts: Any*
-  )(value: V, ttl: Option[Duration] = None)(implicit cache: Cache[V], mode: Mode[F], flags: Flags): F[Any] =
+  )(value: V, ttl: Option[Duration] = None)(implicit cache: Cache[F, V], flags: Flags): F[Any] =
     cache.put(keyParts: _*)(value, ttl)
 
   /**
@@ -52,15 +52,14 @@ package object scalacache {
     *                 This could be as simple as just a single String.
     *                 See [[CacheKeyBuilder]].
     * @param cache The cache
-    * @param mode The operation mode, which decides the type of container in which to wrap the result
     * @tparam F The type of container in which the result will be wrapped. This is decided by the mode.
     * @tparam V The type of the value to be removed
     */
-  def remove[F[_], V](keyParts: Any*)(implicit cache: Cache[V], mode: Mode[F]): F[Any] =
+  def remove[F[_]: Async, V](keyParts: Any*)(implicit cache: Cache[F, V]): F[Any] =
     cache.remove(keyParts: _*)
 
   final class RemoveAll[V] {
-    def apply[F[_]]()(implicit cache: Cache[V], mode: Mode[F]): F[Any] = cache.removeAll[F]()
+    def apply[F[_]: Async]()(implicit cache: Cache[F, V]): F[Any] = cache.removeAll()
   }
 
   /**
@@ -84,15 +83,14 @@ package object scalacache {
     *            If specified, the cache entry will expire after this time has elapsed.
     * @param f The block to run
     * @param cache The cache
-    * @param mode The operation mode, which decides the type of container in which to wrap the result
     * @param flags Flags used to conditionally alter the behaviour of ScalaCache
     * @tparam F The type of container in which the result will be wrapped. This is decided by the mode.
     * @tparam V the type of the block's result
     * @return The result, either retrived from the cache or returned by the block
     */
-  def caching[F[_], V](
+  def caching[F[_]: Async, V](
       keyParts: Any*
-  )(ttl: Option[Duration])(f: => V)(implicit cache: Cache[V], mode: Mode[F], flags: Flags): F[V] =
+  )(ttl: Option[Duration])(f: => V)(implicit cache: Cache[F, V], flags: Flags): F[V] =
     cache.caching(keyParts: _*)(ttl)(f)
 
   /**
@@ -109,55 +107,13 @@ package object scalacache {
     *            If specified, the cache entry will expire after this time has elapsed.
     * @param f The block to run
     * @param cache The cache
-    * @param mode The operation mode, which decides the type of container in which to wrap the result
     * @param flags Flags used to conditionally alter the behaviour of ScalaCache
     * @tparam F The type of container in which the result will be wrapped. This is decided by the mode.
     * @tparam V the type of the block's result
     * @return The result, either retrived from the cache or returned by the block
     */
-  def cachingF[F[_], V](
+  def cachingF[F[_]: Async, V](
       keyParts: Any*
-  )(ttl: Option[Duration])(f: => F[V])(implicit cache: Cache[V], mode: Mode[F], flags: Flags): F[V] =
+  )(ttl: Option[Duration])(f: => F[V])(implicit cache: Cache[F, V], flags: Flags): F[V] =
     cache.cachingF(keyParts: _*)(ttl)(f)
-
-  /**
-    * A version of the API that is specialised to [[Id]].
-    * The functions in this API perform their operations immediately
-    * on the current thread and thus do not wrap their results in any effect monad.
-    *
-    * ===
-    *
-    * Implementation note: I really didn't want to have this separate copy of the API,
-    * but I couldn't get type inference to understand that Id[A] == A.
-    * e.g. the following doesn't compile:
-    *
-    * implicit val cache: LovelyCache[String] = ???
-    * import scalacache.modes.sync._
-    * val x: Option[String] = scalacache.get("hello")
-    *
-    * [error] ... polymorphic expression cannot be instantiated to expected type;
-    * [error]  found   : [F[_], V]F[Option[V]]
-    * [error]  required: Option[String]
-    *
-    * If anyone can find a workaround to make this compile, I will be much obliged.
-    */
-  object sync {
-
-    def get[V](keyParts: Any*)(implicit cache: Cache[V], mode: Mode[Id], flags: Flags): Option[V] =
-      cache.get[Id](keyParts: _*)
-
-    def put[V](
-        keyParts: Any*
-    )(value: V, ttl: Option[Duration] = None)(implicit cache: Cache[V], mode: Mode[Id], flags: Flags): Any =
-      cache.put[Id](keyParts: _*)(value, ttl)
-
-    def remove[V](keyParts: Any*)(implicit cache: Cache[V], mode: Mode[Id]): Any =
-      cache.remove[Id](keyParts: _*)
-
-    def caching[V](
-        keyParts: Any*
-    )(ttl: Option[Duration])(f: => V)(implicit cache: Cache[V], mode: Mode[Id], flags: Flags): V =
-      cache.caching[Id](keyParts: _*)(ttl)(f)
-  }
-
 }

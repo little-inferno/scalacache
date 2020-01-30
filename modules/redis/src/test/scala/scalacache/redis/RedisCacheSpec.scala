@@ -1,5 +1,6 @@
 package scalacache.redis
 
+import cats.effect.Async
 import redis.clients.jedis._
 import scalacache._
 import scalacache.serialization.Codec
@@ -13,8 +14,8 @@ class RedisCacheSpec extends RedisCacheSpecBase with RedisTestUtil {
 
   val withJedis = assumingRedisIsRunning _
 
-  def constructCache[V](pool: JPool)(implicit codec: Codec[V]): CacheAlg[V] =
-    new RedisCache[V](jedisPool = pool)
+  def constructCache[F[_]: Async, V](pool: JPool)(implicit codec: Codec[V]): CacheAlg[F, V] =
+    new RedisCache[F, V](jedisPool = pool)
 
   def flushRedis(client: JClient): Unit = client.underlying.flushDB()
 

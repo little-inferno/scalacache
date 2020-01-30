@@ -2,6 +2,7 @@ package scalacache.ohc
 
 import java.time.Instant
 
+import cats.effect.IO
 import org.caffinitas.ohc.{OHCache, OHCacheBuilder}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
@@ -19,27 +20,25 @@ class OhcCacheSpec extends FlatSpec with Matchers with BeforeAndAfter with Scala
       .timeouts(true)
       .build()
 
-  import scalacache.modes.sync._
-
   behavior of "get"
 
   it should "return the value stored in the underlying cache" in {
     val underlying = newOHCache
     underlying.put("key1", "hello")
-    OhcCache(underlying).get("key1") should be(Some("hello"))
+    OhcCache[IO, String](underlying).get("key1").unsafeRunSync() should be(Some("hello"))
     underlying.close()
   }
 
   it should "return None if the given key does not exist in the underlying cache" in {
     val underlying = newOHCache
-    OhcCache(underlying).get("non-existent key") should be(None)
+    OhcCache[IO, String](underlying).get("non-existent key").unsafeRunSync() should be(None)
     underlying.close()
   }
 
   it should "return None if the given key has expired" in {
     val underlying = newOHCache
     underlying.put("key1", "hello", Instant.now.minusSeconds(1).toEpochMilli)
-    OhcCache(underlying).get("key1") should be(None)
+    OhcCache[IO, String](underlying).get("key1").unsafeRunSync() should be(None)
     underlying.close()
   }
 
@@ -47,7 +46,7 @@ class OhcCacheSpec extends FlatSpec with Matchers with BeforeAndAfter with Scala
 
   it should "store the given key-value pair in the underlying cache with no TTL" in {
     val underlying = newOHCache
-    OhcCache(underlying).put("key1")("hello", None)
+    OhcCache[IO, String](underlying).put("key1")("hello", None).unsafeRunSync()
     underlying.get("key1") should be("hello")
     underlying.close()
   }
@@ -56,11 +55,11 @@ class OhcCacheSpec extends FlatSpec with Matchers with BeforeAndAfter with Scala
 
   it should "store the given key-value pair in the underlying cache with the given TTL" in {
     val underlying = newOHCache
-    val ohcCache   = new OhcCache(underlying)(implicitly[CacheConfig])
-    ohcCache.put("key1")("hello", Some(1.nanosecond))
+    val ohcCache   = new OhcCache[IO, String](underlying)
+    ohcCache.put("key1")("hello", Some(1.nanosecond)).unsafeRunSync()
     Thread.sleep(100)
     underlying.get("key1") should be(null)
-    ohcCache.put("key2")("hello", Some(1.day))
+    ohcCache.put("key2")("hello", Some(1.day)).unsafeRunSync()
     underlying.get("key2") should be("hello")
     underlying.close()
   }
@@ -72,7 +71,7 @@ class OhcCacheSpec extends FlatSpec with Matchers with BeforeAndAfter with Scala
     underlying.put("key1", "hello")
     underlying.get("key1") should be("hello")
 
-    OhcCache(underlying).remove("key1")
+    OhcCache[IO, String](underlying).remove("key1").unsafeRunSync()
     underlying.get("key1") should be(null)
     underlying.close()
   }

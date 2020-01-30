@@ -1,5 +1,6 @@
 package scalacache.redis
 
+import cats.effect.Async
 import redis.clients.jedis.{JedisPoolConfig, JedisShardInfo, ShardedJedisPool}
 import scalacache._
 import scalacache.serialization.Codec
@@ -14,8 +15,8 @@ class ShardedRedisCacheSpec extends RedisCacheSpecBase {
 
   val withJedis = assumingMultipleRedisAreRunning _
 
-  def constructCache[V](pool: JPool)(implicit codec: Codec[V]): CacheAlg[V] =
-    new ShardedRedisCache[V](jedisPool = pool)
+  def constructCache[F[_]: Async, V](pool: JPool)(implicit codec: Codec[V]): CacheAlg[F, V] =
+    new ShardedRedisCache[F, V](jedisPool = pool)
 
   def flushRedis(client: JClient): Unit =
     client.underlying.getAllShards.asScala.foreach(_.flushDB())

@@ -51,9 +51,8 @@ getCatF(123)
 Again, there is a synchronous memoization method for convient use of the synchronous mode:
 
 ```tut
-import scalacache.modes.sync._
 
-def getCatSync(id: Int): Cat = memoizeSync(Some(10.seconds)) {
+def getCatSync(id: Int): Cat = memoize(Some(10.seconds)) {
   // Do DB lookup here ...
   Cat(id, s"cat ${id}", "black")
 }
@@ -77,7 +76,7 @@ For example, given the following method:
 package foo
 
 object Bar {
-  def baz(a: Int, b: String)(c: String): Int = memoizeSync(None) {
+  def baz(a: Int, b: String)(c: String): Int = memoize(None) {
     // Reticulating splines...   
     123
   }
@@ -105,7 +104,7 @@ package foo
 
 class Bar(a: Int) {
 
-  def baz(b: Int): Int = memoizeSync(None) {
+  def baz(b: Int): Int = memoize(None) {
     a + b
   }
   

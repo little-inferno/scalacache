@@ -1,13 +1,14 @@
 package scalacache.memoization
 
+import cats.effect.IO
 import scalacache._
-import scalacache.modes.sync._
 
 package object pkg {
-  implicit var cache: Cache[Int] = null
+  implicit var cache: Cache[IO, Int] = null
 
-  def insidePackageObject(a: Int): Int = memoizeSync(None) {
-    123
-  }
+  def insidePackageObject(a: Int): Int =
+    memoize(None) {
+      123
+    }.unsafeRunSync()
 
 }

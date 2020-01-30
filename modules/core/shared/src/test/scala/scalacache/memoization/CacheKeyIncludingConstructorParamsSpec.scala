@@ -1,5 +1,6 @@
 package scalacache.memoization
 
+import cats.effect.IO
 import org.scalatest._
 import scalacache._
 import scalacache.memoization.MethodCallToStringConverter._
@@ -16,7 +17,7 @@ class CacheKeyIncludingConstructorParamsSpec extends FlatSpec with CacheKeySpecC
     instance.cache = cache
 
     checkCacheKey("scalacache.memoization.ClassWithConstructorParams(50).foo(42)") {
-      instance.foo(42)
+      IO.pure(instance.foo(42))
     }
   }
 
@@ -25,7 +26,7 @@ class CacheKeyIncludingConstructorParamsSpec extends FlatSpec with CacheKeySpecC
     instance.cache = cache
 
     checkCacheKey("scalacache.memoization.ClassWithExcludedConstructorParam(50).foo(42)") {
-      instance.foo(42)
+      IO.pure(instance.foo(42))
     }
   }
 
@@ -56,39 +57,39 @@ class CacheKeyIncludingConstructorParamsSpec extends FlatSpec with CacheKeySpecC
   it should "work for a method inside a class" in {
     // The class's implicit param (the Cache) should be included in the cache key)
     checkCacheKey(s"scalacache.memoization.AClass()(${cache.toString}).insideClass(1)") {
-      new AClass().insideClass(1)
+      IO.pure(new AClass().insideClass(1))
     }
   }
 
   it should "work for a method inside a trait" in {
     checkCacheKey("scalacache.memoization.ATrait.insideTrait(1)") {
-      new ATrait { val cache = self.cache }.insideTrait(1)
+      IO.pure(new ATrait { val cache = self.cache }.insideTrait(1))
     }
   }
 
   it should "work for a method inside an object" in {
     AnObject.cache = this.cache
     checkCacheKey("scalacache.memoization.AnObject.insideObject(1)") {
-      AnObject.insideObject(1)
+      IO.pure(AnObject.insideObject(1))
     }
   }
 
   it should "work for a method inside a class inside a class" in {
     checkCacheKey("scalacache.memoization.AClass.InnerClass.insideInnerClass(1)") {
-      new AClass().inner.insideInnerClass(1)
+      IO.pure(new AClass().inner.insideInnerClass(1))
     }
   }
 
   it should "work for a method inside an object inside a class" in {
     checkCacheKey("scalacache.memoization.AClass.InnerObject.insideInnerObject(1)") {
-      new AClass().InnerObject.insideInnerObject(1)
+      IO.pure(new AClass().InnerObject.insideInnerObject(1))
     }
   }
 
   it should "work for a method inside a package object" in {
     pkg.cache = this.cache
     checkCacheKey("scalacache.memoization.pkg.package.insidePackageObject(1)") {
-      pkg.insidePackageObject(1)
+      IO.pure(pkg.insidePackageObject(1))
     }
   }
 }

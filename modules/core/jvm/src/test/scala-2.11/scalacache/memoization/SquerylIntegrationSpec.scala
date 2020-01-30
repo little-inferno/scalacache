@@ -10,7 +10,6 @@ import org.squeryl._
 import org.squeryl.PrimitiveTypeMode._
 
 import scalacache._
-import scalacache.modes.sync._
 
 /**
   * Test for https://github.com/cb372/scalacache/issues/14
@@ -47,7 +46,7 @@ class SquerylIntegrationSpec
     import FooDb.users
     implicit val cache = new MockCache[Option[User]] with LoggingCache[Option[User]]
 
-    def findUser(userId: Int): Option[User] = memoizeSync(None) {
+    def findUser(userId: Int): Option[User] = memoize(None) {
       inTransaction {
         from(users)((u) => select(u))
       }.headOption
